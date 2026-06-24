@@ -1,29 +1,28 @@
-# Apple Classification — Research Project
+# Apple Classification - Research Project
 
-A machine-learning pipeline for classifying apple varieties (and/or quality/defect grading) from image data.
+A machine-learning pipeline for classifying apple varieties and quality/defect grading from image data.
 
 ## Project Layout
 
 ```
 apple_class/
 ├── data/
-│   ├── raw/          # Original images — NOT committed (gitignored)
-│   ├── processed/    # Pre-processed tensors / splits
+│   ├── raw/          # Original images - not committed (gitignored)
+│   ├── processed/    # Pre-processed tensors and splits
 │   └── splits/       # train / val / test CSV manifests
 ├── src/
-│   ├── dataset.py    # PyTorch Dataset / DataLoader helpers
+│   ├── dataset.py    # PyTorch Dataset and DataLoader helpers
 │   ├── model.py      # Model architecture definitions
 │   ├── train.py      # Training loop
-│   ├── evaluate.py   # Evaluation & metrics
+│   ├── evaluate.py   # Evaluation and metrics
 │   └── utils.py      # Shared utilities
 ├── configs/
-│   └── default.yaml  # Hyperparameters & paths
-├── notebooks/        # Exploratory analysis (NOT committed)
+│   └── default.yaml  # Hyperparameters and paths
+├── notebooks/        # Exploratory analysis (not committed)
 ├── outputs/
 │   ├── logs/         # Training logs
 │   └── figures/      # Saved plots
 ├── requirements.txt
-├── setup.py          # (optional) Installable package
 └── README.md
 ```
 
@@ -41,17 +40,17 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Point configs/default.yaml at your data path, then:
+# 4. Point configs/default.yaml at your data path, then run:
 python src/train.py --config configs/default.yaml
 ```
 
 ## Workflow
 
-| Step | Command |
-|------|---------|
-| Preprocess / build splits | `python src/dataset.py` |
-| Train | `python src/train.py` |
-| Evaluate | `python src/evaluate.py` |
+| Step                    | Command                          |
+|-------------------------|----------------------------------|
+| Build dataset splits    | `python src/dataset.py`          |
+| Train                   | `python src/train.py`            |
+| Evaluate on test set    | `python src/evaluate.py`         |
 
 ## Requirements
 
