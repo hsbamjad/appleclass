@@ -5,6 +5,7 @@ Common utility helpers shared across the pipeline.
 import logging
 import os
 import random
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,7 @@ import yaml
 from omegaconf import DictConfig, OmegaConf
 
 
-# ── Logging ───────────────────────────────────────────────────────────────
+# Logging
 
 
 def get_logger(name: str = __name__, level: int = logging.INFO) -> logging.Logger:
@@ -34,17 +35,17 @@ def get_logger(name: str = __name__, level: int = logging.INFO) -> logging.Logge
     return logger
 
 
-# ── Config ────────────────────────────────────────────────────────────────
+# Config
 
 
 def load_config(path: str | Path) -> DictConfig:
     """Load a YAML config file and return an OmegaConf DictConfig."""
-    with open(path, "r") as f:
-        raw = yaml.safe_load(f)
+    with open(path, "r") as fh:
+        raw = yaml.safe_load(fh)
     return OmegaConf.create(raw)
 
 
-# ── Reproducibility ───────────────────────────────────────────────────────
+# Reproducibility
 
 
 def seed_everything(seed: int = 42) -> None:
@@ -56,7 +57,7 @@ def seed_everything(seed: int = 42) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-# ── Device ────────────────────────────────────────────────────────────────
+# Device
 
 
 def get_device() -> torch.device:
@@ -64,16 +65,16 @@ def get_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# ── Directory helpers ─────────────────────────────────────────────────────
+# Directory helpers
 
 
 def ensure_dirs(*paths: str | Path) -> None:
-    """Create directories (including parents) if they don't exist."""
+    """Create directories (including parents) if they do not exist."""
     for p in paths:
         Path(p).mkdir(parents=True, exist_ok=True)
 
 
-# ── Checkpoint helpers ────────────────────────────────────────────────────
+# Checkpoint helpers
 
 
 def save_checkpoint(
@@ -82,13 +83,12 @@ def save_checkpoint(
     is_best: bool = False,
     best_path: str | Path | None = None,
 ) -> None:
-    """Save a training checkpoint; optionally also save as *best*."""
+    """Save a training checkpoint and optionally copy it as the best checkpoint."""
     torch.save(state, path)
     if is_best and best_path is not None:
-        import shutil
         shutil.copyfile(path, best_path)
 
 
 def load_checkpoint(path: str | Path, device: torch.device) -> dict[str, Any]:
-    """Load a checkpoint from *path* onto *device*."""
+    """Load a checkpoint from path onto device."""
     return torch.load(path, map_location=device)

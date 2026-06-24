@@ -13,9 +13,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
-import seaborn as sns
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -27,6 +27,12 @@ logger = get_logger(__name__)
 
 
 def evaluate(cfg, checkpoint_path: str) -> dict:
+    """
+    Run inference on the test split using the given checkpoint.
+
+    Saves a confusion matrix PNG to cfg.paths.figure_dir and returns
+    a dict with keys 'accuracy' and 'report'.
+    """
     device = get_device()
     ensure_dirs(cfg.paths.figure_dir)
 
@@ -37,45 +43,52 @@ def evaluate(cfg, checkpoint_path: str) -> dict:
     model.load_state_dict(state["model"])
     model.eval()
 
-    all_preds, all_labels = [], []
+    all_preds: list[int] = []
+    all_labels: list[int] = []
 
     with torch.no_grad():
         for images, labels in test_loader:
             images = images.to(device)
             logits = model(images)
             preds = logits.argmax(dim=1).cpu().numpy()
-            all_preds.extend(preds)
-            all_labels.extend(labels.numpy())
+            all_preds.extend(preds.tolist())
+            all_labels.extend(labels.numpy().tolist())
 
-    all_preds = np.array(all_preds)
-    all_labels = np.array(all_labels)
+    all_preds_arr = np.array(all_preds)
+    all_labels_arr = np.array(all_labels)
 
     report = classification_report(
-        all_labels, all_preds,
+        all_labels_arr,
+        all_preds_arr,
         target_names=class_names if class_names else None,
         digits=4,
     )
-    logger.info(f"\n{report}")
+    logger.info("Classification report:\n%s", report)
 
-    # Confusion matrix
-    cm = confusion_matrix(all_labels, all_preds)
+    cm = confusion_matrix(all_labels_arr, all_preds_arr)
     fig, ax = plt.subplots(figsize=(8, 6))
     sns.heatmap(
-        cm, annot=True, fmt="d", cmap="Blues",
-        xticklabels=class_names or range(cm.shape[1]),
-        yticklabels=class_names or range(cm.shape[0]),
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=class_names if class_names else list(range(cm.shape[1])),
+        yticklabels=class_names if class_names else list(range(cm.shape[0])),
         ax=ax,
     )
     ax.set_xlabel("Predicted")
     ax.set_ylabel("True")
-    ax.set_title("Confusion Matrix — Test Set")
+    ax.set_title("Confusion Matrix - Test Set")
     fig_path = Path(cfg.paths.figure_dir) / "confusion_matrix.png"
     fig.savefig(fig_path, dpi=150, bbox_inches="tight")
-    logger.info(f"Confusion matrix saved to {fig_path}")
+    plt.close(fig)
+    logger.info("Confusion matrix saved to %s", fig_path)
 
-    accuracy = (all_preds == all_labels).mean()
-    return {"accuracy": float(accuracy), "report": report}
+    accuracy = float((all_preds_arr == all_labels_arr).mean())
+    return {"accuracy": accuracy, "report": report}
 
+
+# CLI
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate apple classifier on test set")
@@ -85,4 +98,4 @@ if __name__ == "__main__":
 
     cfg = load_config(args.config)
     results = evaluate(cfg, args.checkpoint)
-    logger.info(f"Test accuracy: {results['accuracy']:.4f}")
+    logger.info("Test accuracy: %.4f", results["accuracy"])

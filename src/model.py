@@ -1,6 +1,6 @@
 """
 src/model.py
-Model factory — wraps any timm backbone for apple classification.
+Model factory that wraps any timm backbone for apple classification.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class AppleClassifier(nn.Module):
     Thin wrapper around a timm backbone with a custom classification head.
 
     Args:
-        cfg: The model section of the project config.
+        cfg: Full project config. Reads from cfg.model.
     """
 
     def __init__(self, cfg: DictConfig) -> None:
@@ -27,7 +27,7 @@ class AppleClassifier(nn.Module):
         self.backbone = timm.create_model(
             cfg.model.name,
             pretrained=cfg.model.pretrained,
-            num_classes=0,          # remove default classifier
+            num_classes=0,
         )
         in_features = self.backbone.num_features
         self.head = nn.Sequential(
@@ -35,16 +35,16 @@ class AppleClassifier(nn.Module):
             nn.Linear(in_features, cfg.model.num_classes),
         )
         logger.info(
-            f"Model: {cfg.model.name} | "
-            f"backbone features: {in_features} | "
-            f"classes: {cfg.model.num_classes}"
+            "Model: %s | backbone features: %d | output classes: %d",
+            cfg.model.name,
+            in_features,
+            cfg.model.num_classes,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        features = self.backbone(x)
-        return self.head(features)
+        return self.head(self.backbone(x))
 
 
 def build_model(cfg: DictConfig) -> AppleClassifier:
-    """Instantiate and return the model described in *cfg*."""
+    """Instantiate and return the model described in cfg."""
     return AppleClassifier(cfg)

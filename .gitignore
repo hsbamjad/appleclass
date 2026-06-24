@@ -1,4 +1,4 @@
-# ── Python ──────────────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,17 +9,17 @@ dist/
 build/
 .eggs/
 
-# ── Virtual environments ─────────────────────────────────────────────────
+# Virtual environments
 .venv/
 venv/
 env/
 ENV/
 
-# ── Jupyter ──────────────────────────────────────────────────────────────
+# Jupyter
 .ipynb_checkpoints/
 *.ipynb
 
-# ── Data & large files ───────────────────────────────────────────────────
+# Data and large files
 data/raw/
 data/external/
 *.csv
@@ -32,7 +32,7 @@ data/external/
 *.npy
 *.npz
 
-# ── Model weights & checkpoints ──────────────────────────────────────────
+# Model weights and checkpoints
 models/weights/
 checkpoints/
 runs/
@@ -42,13 +42,13 @@ runs/
 *.tflite
 *.pb
 
-# ── MLflow / W&B / TensorBoard ───────────────────────────────────────────
+# MLflow / W&B / TensorBoard
 mlruns/
 mlartifacts/
 wandb/
 lightning_logs/
 
-# ── OS & IDE ─────────────────────────────────────────────────────────────
+# OS and IDE
 .DS_Store
 Thumbs.db
 .idea/
@@ -56,7 +56,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# ── Secrets & environment vars ───────────────────────────────────────────
+# Secrets and environment variables
 .env
 .env.*
 secrets.yaml

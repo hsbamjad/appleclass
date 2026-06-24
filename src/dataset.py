@@ -4,11 +4,11 @@ PyTorch Dataset and DataLoader construction for apple classification.
 
 Expected directory layout (ImageFolder-compatible):
     data/raw/
-        ├── class_a/
-        │     ├── img001.jpg
-        │     └── ...
-        └── class_b/
-              └── ...
+        class_a/
+            img001.jpg
+            ...
+        class_b/
+            ...
 
 Run as a script to generate train/val/test split CSVs:
     python src/dataset.py --config configs/default.yaml
@@ -27,16 +27,18 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 
-from utils import get_logger, load_config, ensure_dirs
+from utils import ensure_dirs, get_logger, load_config
 
 logger = get_logger(__name__)
 
+SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}
 
-# ── Transforms ────────────────────────────────────────────────────────────
+
+# Transforms
 
 
 def build_transforms(cfg: DictConfig, split: str = "train") -> A.Compose:
-    """Return an albumentations pipeline for *split* ∈ {train, val, test}."""
+    """Return an albumentations augmentation pipeline for the given split."""
     aug = cfg.augmentation
     size = cfg.data.image_size
     mean = (0.485, 0.456, 0.406)
@@ -62,17 +64,16 @@ def build_transforms(cfg: DictConfig, split: str = "train") -> A.Compose:
     return A.Compose(transforms)
 
 
-# ── Dataset ───────────────────────────────────────────────────────────────
+# Dataset
 
 
 class AppleDataset(Dataset):
     """
-    Loads images listed in a CSV manifest.
+    Image dataset loaded from a CSV manifest.
 
-    CSV format (no header required, just these two columns):
-        filepath,label
-        data/raw/class_a/img001.jpg,0
-        ...
+    CSV columns:
+        filepath  - path to the image file
+        label     - integer class index
     """
 
     def __init__(
@@ -92,24 +93,21 @@ class AppleDataset(Dataset):
         row = self.manifest.iloc[idx]
         img_path = self.root / row["filepath"]
         label = int(row["label"])
-
         image = np.array(Image.open(img_path).convert("RGB"))
         if self.transform:
             image = self.transform(image=image)["image"]
         return image, label
 
 
-# ── DataLoader factory ────────────────────────────────────────────────────
+# DataLoader factory
 
 
-def build_loaders(
-    cfg: DictConfig,
-) -> tuple[DataLoader, DataLoader, DataLoader, list[str]]:
+def build_loaders(cfg: DictConfig) -> tuple[DataLoader, DataLoader, DataLoader, list[str]]:
     """
-    Build train / val / test DataLoaders from split CSVs.
+    Construct train, val, and test DataLoaders from split CSVs.
 
     Returns:
-        (train_loader, val_loader, test_loader, class_names)
+        Tuple of (train_loader, val_loader, test_loader, class_names).
     """
     splits_dir = Path(cfg.data.splits)
     class_names = _load_class_names(splits_dir)
@@ -141,13 +139,15 @@ def _load_class_names(splits_dir: Path) -> list[str]:
     return []
 
 
-# ── Split builder (run as script) ─────────────────────────────────────────
+# Split builder
 
 
 def build_splits(cfg: DictConfig) -> None:
     """
-    Scan cfg.data.root for an ImageFolder layout and produce
-    train/val/test CSVs + classes.txt in cfg.data.splits.
+    Scan cfg.data.root for an ImageFolder layout and write
+    train/val/test split CSVs and a classes.txt to cfg.data.splits.
+
+    Split ratio: 70% train, 15% val, 15% test (stratified).
     """
     root = Path(cfg.data.root)
     splits_dir = Path(cfg.data.splits)
@@ -158,27 +158,36 @@ def build_splits(cfg: DictConfig) -> None:
 
     for label, cls in enumerate(class_names):
         for img_path in (root / cls).rglob("*"):
-            if img_path.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp"}:
+            if img_path.suffix.lower() in SUPPORTED_EXTENSIONS:
                 records.append({"filepath": str(img_path), "label": label})
 
-    df = pd.DataFrame(records).sample(frac=1, random_state=42).reset_index(drop=True)
-    logger.info(f"Total images found: {len(df)}")
-    logger.info(f"Classes: {class_names}")
+    if not records:
+        logger.error("No images found under %s. Check cfg.data.root.", root)
+        return
 
-    # 70 / 15 / 15 split
-    train_df, temp_df = train_test_split(df, test_size=0.30, stratify=df["label"], random_state=42)
-    val_df, test_df = train_test_split(temp_df, test_size=0.50, stratify=temp_df["label"], random_state=42)
+    df = pd.DataFrame(records).sample(frac=1, random_state=42).reset_index(drop=True)
+    logger.info("Total images found: %d", len(df))
+    logger.info("Classes: %s", class_names)
+
+    train_df, temp_df = train_test_split(
+        df, test_size=0.30, stratify=df["label"], random_state=42
+    )
+    val_df, test_df = train_test_split(
+        temp_df, test_size=0.50, stratify=temp_df["label"], random_state=42
+    )
 
     train_df.to_csv(splits_dir / "train.csv", index=False)
     val_df.to_csv(splits_dir / "val.csv", index=False)
     test_df.to_csv(splits_dir / "test.csv", index=False)
     (splits_dir / "classes.txt").write_text("\n".join(class_names))
 
-    logger.info(f"Splits saved to {splits_dir}  "
-                f"(train={len(train_df)}, val={len(val_df)}, test={len(test_df)})")
+    logger.info(
+        "Splits written to %s  (train=%d, val=%d, test=%d)",
+        splits_dir, len(train_df), len(val_df), len(test_df),
+    )
 
 
-# ── CLI ───────────────────────────────────────────────────────────────────
+# CLI
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build dataset splits")
