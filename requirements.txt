@@ -1,0 +1,29 @@
+# Core ML / DL
+torch>=2.2.0
+torchvision>=0.17.0
+timm>=0.9.16            # pre-trained vision models
+
+# Data & preprocessing
+numpy>=1.26.0
+pandas>=2.2.0
+Pillow>=10.3.0
+scikit-learn>=1.4.0
+albumentations>=1.4.0   # image augmentations
+
+# Config & CLI
+PyYAML>=6.0.1
+omegaconf>=2.3.0
+click>=8.1.7
+
+# Experiment tracking
+mlflow>=2.12.0
+# wandb>=0.17.0          # uncomment if you prefer W&B
+
+# Metrics & visualization
+matplotlib>=3.8.4
+seaborn>=0.13.2
+scikit-image>=0.23.0
+
+# Utilities
+tqdm>=4.66.4
+rich>=13.7.1

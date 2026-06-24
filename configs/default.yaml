@@ -1,0 +1,47 @@
+# configs/default.yaml
+# ─────────────────────────────────────────────────────────────────────────
+# All paths are relative to the project root unless they start with /
+# ─────────────────────────────────────────────────────────────────────────
+
+data:
+  root: data/raw              # ← change on the data system
+  processed: data/processed
+  splits: data/splits
+  image_size: 224             # resize target (H = W)
+  num_workers: 4
+
+model:
+  name: resnet50              # any timm model name
+  pretrained: true
+  num_classes: 5              # set to your actual class count
+  dropout: 0.3
+
+training:
+  epochs: 50
+  batch_size: 32
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+  optimizer: adamw            # sgd | adam | adamw
+  scheduler: cosine           # step | cosine | plateau
+  early_stopping_patience: 10
+  mixed_precision: true       # fp16 training (requires CUDA)
+
+augmentation:
+  train:
+    horizontal_flip: true
+    vertical_flip: false
+    random_rotation: 15
+    color_jitter: true
+    random_erasing: true
+  val:
+    horizontal_flip: false
+
+paths:
+  output_dir: outputs
+  log_dir: outputs/logs
+  figure_dir: outputs/figures
+  checkpoint_dir: checkpoints
+
+mlflow:
+  tracking_uri: outputs/mlruns
+  experiment_name: apple_classification
