@@ -19,6 +19,7 @@ Output:
     run1/validation/fig4_rgb_channel_consistency.png   (per-channel R/G/B frame-to-frame)
     run1/validation/fig5_rgb_channel_histogram.png     (per-channel R/G/B histogram + R>G>B check)
     run1/validation/fig6_rgb_channel_zones.png         (per-channel R/G/B belt zone uniformity)
+    run1/validation/fig7_uniformity_before_after.png   (2D spatial proof: raw vs calibrated Spectralon)
     run1/validation/validation_report.txt
 """
 
@@ -388,6 +389,75 @@ def run(run_dir, exp_apple):
         plt.close()
         print('  Saved fig6_rgb_channel_zones.png')
 
+    # ── FIG 7: Spatial uniformity proof -- raw illumination map vs calibrated panel ──
+    print('\nGenerating Figure 7: Spatial uniformity before vs after calibration...')
+    from matplotlib.patches import Rectangle
+    dark_cal  = {f'ch{i}': to_gray(np.load(CAL_DIR / f'dark_avg_ch{i}.npy'))   for i in [1,2,3]}
+    illum_cal = {f'ch{i}': to_gray(np.load(CAL_DIR / f'illumination_map_ch{i}.npy')) for i in [1,2,3]}
+    panel_cal_stats = {}  # store stats for text report
+
+    ch_label = {'ch1': 'RGB', 'ch2': 'NIR1', 'ch3': 'NIR2'}
+    fig, axes = plt.subplots(2, 3, figsize=(20, 10))
+    fig.patch.set_facecolor('#1a1a2e')
+    fig.suptitle('Spatial Uniformity Proof: BEFORE vs AFTER Calibration\n'
+                 'TOP = Raw illumination map (non-uniform lighting)\n'
+                 'BOTTOM = Calibrated Spectralon panel -- should be flat ~0.75 in panel region (cyan box)',
+                 color='white', fontsize=12, fontweight='bold')
+
+    for col, ch in enumerate(['ch1', 'ch2', 'ch3']):
+        bmap  = illum_cal[ch]            # (H, W) raw illumination map
+        # Load center white reference and apply calibration to it
+        white_c = to_gray(np.load(CAL_DIR / f'white_avg_white_C_{ch}.npy'))
+        net     = np.clip(white_c - dark_cal[ch], 0, None)
+        amap    = np.clip(net / np.clip(bmap, 1, None) * PANEL, 0, 1)  # ratio=1: same exposure
+        H, W    = amap.shape
+        # Panel region = center 1/3
+        r0, r1 = H // 3, 2 * H // 3
+        c0, c1 = W // 3, 2 * W // 3
+        cen     = amap[r0:r1, c0:c1]
+        m       = float(np.mean(cen))
+        s       = float(np.std(cen))
+        err     = (m - PANEL) / PANEL * 100
+        cov_b   = bmap.std() / bmap.mean() * 100
+        cov_a   = s / m * 100 if m > 0 else 0
+        panel_cal_stats[ch] = {'mean': m, 'std': s, 'cov_before': cov_b, 'cov_after': cov_a, 'err': err}
+
+        # TOP: raw illumination map
+        ax = axes[0, col]
+        ax.set_facecolor('#0d1117')
+        im = ax.imshow(bmap, cmap='hot', aspect='auto')
+        cb = plt.colorbar(im, ax=ax)
+        cb.ax.yaxis.set_tick_params(color='white')
+        ax.set_title(f'{ch_label[ch]} -- RAW illumination map\n'
+                     f'mean={bmap.mean():.1f} DN  CoV={cov_b:.1f}%  (non-uniform = bad)',
+                     color='white', fontsize=9)
+        ax.tick_params(colors='white')
+        for sp in ax.spines.values(): sp.set_edgecolor('#444')
+
+        # BOTTOM: calibrated panel
+        ax = axes[1, col]
+        ax.set_facecolor('#0d1117')
+        im2 = ax.imshow(amap, cmap='hot', vmin=0, vmax=1.0, aspect='auto')
+        cb2 = plt.colorbar(im2, ax=ax)
+        cb2.ax.yaxis.set_tick_params(color='white')
+        cb2.set_label('Reflectance (0=black, 0.75=panel, 1=mirror)', color='white', fontsize=8)
+        t_col = 'lime' if abs(err) < 2 else 'orange'
+        ax.set_title(f'{ch_label[ch]} -- CALIBRATED Spectralon panel\n'
+                     f'Center mean={m:.4f}  CoV={cov_a:.1f}%  error from 0.75={err:+.2f}%',
+                     color=t_col, fontsize=9)
+        ax.tick_params(colors='white')
+        for sp in ax.spines.values(): sp.set_edgecolor('#444')
+        rect = Rectangle((c0, r0), c1 - c0, r1 - r0, lw=2,
+                          edgecolor='cyan', facecolor='none', ls='--')
+        ax.add_patch(rect)
+        ax.text(c0 + 10, r0 + 40, 'panel region', color='cyan', fontsize=8)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.90])
+    fig.savefig(out_dir / 'fig7_uniformity_before_after.png', dpi=150,
+                bbox_inches='tight', facecolor=fig.get_facecolor())
+    plt.close()
+    print('  Saved fig7_uniformity_before_after.png')
+
     # ── TEXT REPORT ───────────────────────────────────────────────────────────
     print('\nGenerating validation report...')
     lines = [
@@ -472,6 +542,25 @@ def run(run_dir, exp_apple):
             '',
         ]
     lines += [
+        '  5. SPATIAL UNIFORMITY (illumination map vs calibrated Spectralon panel)',
+        '-' * 65,
+        '  Before calibration: illumination varies across belt (center-bright, edge-dark).',
+        '  After calibration : Spectralon panel should read ~0.75 uniformly everywhere.',
+        '  Panel region = center 1/3 of frame where Spectralon was placed.',
+        '',
+    ]
+    for ch in ['ch1', 'ch2', 'ch3']:
+        s = panel_cal_stats[ch]
+        verdict = 'PASS' if abs(s['err']) < 2 else 'WARNING -- outside +/-2% tolerance'
+        lines += [
+            f'  {CH_NAMES[ch]}',
+            f'    Illumination CoV (before) : {s["cov_before"]:.2f}%',
+            f'    Panel reflectance (after) : {s["mean"]:.4f}  (expected 0.75)',
+            f'    Error from 0.75           : {s["err"]:+.2f}%',
+            f'    Verdict                   : {verdict}',
+            '',
+        ]
+    lines += [
         '  NOTE ON NIR CHANNELS',
         '-' * 65,
         '  NIR channels capture tissue properties (moisture, sugar, chlorophyll).',
@@ -479,11 +568,7 @@ def run(run_dir, exp_apple):
         '  each with genuinely different internal tissue properties.',
         '  Therefore, NIR variation across frames reflects real biology,',
         '  not calibration failure. The spatial calibration for NIR is',
-        '  validated by the Spectralon panel test (0.44% error).',
-        '',
-        '  SPATIAL CALIBRATION ALREADY PROVEN:',
-        '    Spectralon panel at center    -> 0.7528 reflectance (certified 0.75)',
-        '    Spectralon panel at all 9 pos -> mean error < 0.5%',
+        '  validated by the Spectralon panel test above.',
         '=' * 65,
     ]
 
