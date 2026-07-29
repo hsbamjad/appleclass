@@ -82,6 +82,11 @@ print()
 scale_factors = {}
 all_ok = True
 
+# Record timestamp from the first ch1 panel frame before the loop
+# (using frames[0] after the loop would give ch3's first frame, which is stale)
+_ch1_frames = sorted((panel_dir / 'ch1').glob('*.jpg')) + sorted((panel_dir / 'ch1').glob('*.png'))
+_first_frame_mtime = str(_ch1_frames[0].stat().st_mtime) if _ch1_frames else ''
+
 for ch in ['ch1', 'ch2', 'ch3']:
     ch_dir = panel_dir / ch
     frames = sorted(ch_dir.glob('*.jpg')) + sorted(ch_dir.glob('*.png'))
@@ -138,10 +143,10 @@ run_dir.mkdir(parents=True, exist_ok=True)
 
 out = {
     'run':          args.run,
-    'captured_at':  str(Path(frames[0]).stat().st_mtime) if frames else '',
+    'captured_at':  _first_frame_mtime,
     'scale_factors': scale_factors,
     'panel_refl':   PANEL,
-    'note':         'Apply these factors in e_apply_full_calibration.py'
+    'note':         'Apply these factors in d_apply_full_calibration.py'
 }
 
 with open(sf_path, 'w') as f:
