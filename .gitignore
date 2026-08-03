@@ -19,8 +19,10 @@ ENV/
 calibration_docs/
 calibration_trials/
 samples_camera_set/
-calibration_results_02/
+calibration_results/
+calibration_results_drift/
 formal_runs/
+calibration_data/
 
 # Jupyter
 .ipynb_checkpoints/
